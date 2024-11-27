@@ -111,7 +111,7 @@ class tile {
 
         var i = this.rowNum;
         var j = this.colNum;
-        document.getElementById(`${i},${j}`).style.backgroundImage = `url(sprite/${this.type}-pipe.png)`;
+        document.getElementById(`${i},${j}`).style.backgroundImage = `url(sprite/${spriteTheme}/${this.type}-pipe.png)`;
         var rndNum = Math.floor(Math.random() * 4);
         // for fun, rotates the tiles to its actual orientation
         // document.getElementById(`${i},${j}`).style.transform = `rotate(${this.solRotation*90}deg)`;
@@ -131,6 +131,8 @@ class tile {
 
     }
 }
+
+var spriteTheme = 'pink'
 
 const tileDictionary = {
     'true,false,false,false':  {type: 'end',          rotation: 0},
@@ -167,20 +169,24 @@ var timeTaken;
 function generatePuzzle() {
 
     resetButton.textContent = 'Reset';
+
+    // Reset Game
     totalMoves = 0;
     minMoves = 0
     timeTaken = 0
-
-
     grid.forEach(row => {
         row.forEach(tile => {
             tile.visited = false;
             tile.connections = [false, false, false, false];
             tile.type = undefined;
-            tile.rotation = undefined;
+            tile.solRotation = undefined;       
+            tile.currentRotation = undefined;       
+            tile.addedRotation = undefined;       
         })
     })
 
+
+    // Generate pipes
     var currentTile = grid[0][0];
     var stackTiles = [];   
     var finishDrawing = false;
@@ -210,6 +216,12 @@ function generatePuzzle() {
     gridOverlay.style.display = 'flex';
     gameStart = true;
 }
+
+function generatePipes() {
+
+}
+
+
 
 var gameStart = false
 
@@ -290,4 +302,10 @@ var sizeSlider = document.getElementById('size-range');
 sizeSlider.addEventListener("input", () => {
     adjustDivSize();
     document.getElementById('seed').value = sizeSlider.value;
+
+    if (sizeSlider.value == 90) {
+        spriteTheme = 'cat';
+    }
 })
+
+var loadButton = document.getElementById('load-button');
