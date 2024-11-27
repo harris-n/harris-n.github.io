@@ -287,6 +287,7 @@ gridOverlay.addEventListener('mousedown', () => {
 
 var sizeSlider = document.getElementById('size-range');
 
-sizeSlider.oninput = function() {
-    adjustDivSize()
-}
+sizeSlider.addEventListener("input", () => {
+    adjustDivSize();
+    document.getElementById('seed').value = sizeSlider.value;
+})
