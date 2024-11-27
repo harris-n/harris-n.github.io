@@ -257,7 +257,7 @@ window.addEventListener('resize', adjustDivSize);
 window.addEventListener('load', startup);
 
 function adjustDivSize() {
-    const targetSize = 0.6 * Math.min(window.innerHeight, window.innerWidth);
+    const targetSize = (sizeSlider.value/100) * Math.min(window.innerHeight, window.innerWidth);
     const gridDimension = Math.round(targetSize / gridSize) * gridSize;
 
     gridDiv.style.height = `${gridDimension}px`;
@@ -283,3 +283,10 @@ gridOverlay.addEventListener('mousedown', () => {
         console.log(timeStarted);
     }
 })
+
+
+var sizeSlider = document.getElementById('size-range');
+
+sizeSlider.oninput = function() {
+    adjustDivSize()
+}
