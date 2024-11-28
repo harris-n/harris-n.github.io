@@ -307,6 +307,8 @@ sizeSlider.addEventListener("input", () => {
         spriteTheme = 'cat';
     } else if (sizeSlider.value == 10) {
         spriteTheme = 'frog';
+    } else if (sizeSlider.value == 69) {
+        spriteTheme = 'rabbit';
     }
 })
 
