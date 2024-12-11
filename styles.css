@@ -4,6 +4,13 @@
     align-items: center; 
 }
 
+#pipe-title{
+    display: flex;
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
 #grid-div{
     display: flex;
     flex-direction: column;
@@ -63,4 +70,9 @@
 
 #size-range:hover{
     opacity: 1; /* Fully shown on mouse-over */
+}
+
+#stats-textbox{
+    width: 15rem;
+    height: 8rem;
 }

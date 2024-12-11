@@ -53,10 +53,12 @@ function checkGrid() {
         gameStart = false;
         timeEnded = Date.now();
 
-        timeTaken = timeEnded - timeStarted;
+        timeTaken = (timeEnded - timeStarted) / 1000;
 
         gridOverlay.style.display = 'block';
-        overlayMessage.textContent = `done in ${totalMoves}/${minMoves} moves and ${timeTaken/1000}sec.`;
+        overlayMessage.textContent = `done in ${totalMoves}/${minMoves} moves and ${timeTaken}sec.`;
+
+        updatePersonalBest(timeTaken);
 
     }
 
@@ -214,14 +216,9 @@ function generatePuzzle() {
 
     overlayMessage.textContent =  `Click to start ${minMoves}`;
     gridOverlay.style.display = 'flex';
+    const personalBestTime = getPersonalBest();
     gameStart = true;
 }
-
-function generatePipes() {
-
-}
-
-
 
 var gameStart = false
 
@@ -282,10 +279,11 @@ function adjustDivSize() {
 
 function startup() {
     adjustDivSize();
-
+    displayPersonalBest();
 }
 
 const gridOverlay = document.getElementById('grid-overlay');
+const pipeHeader = document.getElementById('pipe-title');
 var timeStarted;
 
 gridOverlay.addEventListener('mousedown', () => {
@@ -297,11 +295,30 @@ gridOverlay.addEventListener('mousedown', () => {
 })
 
 
+
+pipeHeader.style.backgroundImage = 'url(sprite/pipes-header-rainbow.png)';
+
+function getAspectRatio(src, callback) {
+    var img = new Image();
+    img.onload = function() {
+        var aspectRatio = img.naturalWidth / img.naturalHeight;
+        callback(aspectRatio);
+    };
+    img.src = src;
+}
+
+getAspectRatio('sprite/pipes-header-rainbow.png', function(aspectRatio) {
+    var pipeHeader = document.getElementById('pipe-title');
+    var newHeight = 0.1 * Math.min(window.innerHeight, window.innerWidth);
+    pipeHeader.style.height = newHeight + "px";
+    pipeHeader.style.width = (newHeight * aspectRatio) + "px";
+});
+
+
 var sizeSlider = document.getElementById('size-range');
 
 sizeSlider.addEventListener("input", () => {
     adjustDivSize();
-    document.getElementById('seed').value = sizeSlider.value;
 
     if (sizeSlider.value == 90) {
         spriteTheme = 'cat';
@@ -313,3 +330,59 @@ sizeSlider.addEventListener("input", () => {
 })
 
 var loadButton = document.getElementById('load-button');
+
+
+function setCookie(name, value, days) {
+    const date = new Date();
+    date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+    const expires = "expires=" + date.toUTCString();
+    document.cookie = name + "=" + value + ";" + expires + ";path=/";
+}
+
+function setPersonalBest(time) {
+    setCookie('personalBest', time, 365);
+}
+
+function getCookie(name) {
+    const nameEQ = name + "=";
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+        let cookie = cookies[i].trim();
+        if (cookie.indexOf(nameEQ) == 0) {
+            return cookie.substring(nameEQ.length, cookie.length);
+        }
+    }
+    return null;
+}
+
+function getPersonalBest() {
+    return getCookie('personalBest');
+}
+
+// Example usage
+const personalBestTime = getPersonalBest();
+
+function updatePersonalBest(newTime) {
+    const currentBest = getPersonalBest();
+    if (!currentBest || newTime < currentBest) {
+        setPersonalBest(newTime);
+
+        overlayMessage.textContent += ` New Personal Best!`;
+    }
+}
+
+// Create a function to delete a cookie
+function deleteCookie(name) {
+    document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC";
+}
+
+// Function to display the personal best time in the textbox
+function displayPersonalBest() {
+    const personalBest = getCookie('personalBest');
+    const textbox = document.getElementById('stats-textbox');
+    if (personalBest) {
+        seed.value = "Personal best: " + personalBest + "s";
+    } else {
+        seed.value = 'No personal best time set';
+    }
+}
