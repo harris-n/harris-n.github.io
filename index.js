@@ -1,4 +1,4 @@
-const gridSize = 5;
+var gridSize = 7;
 const resetButton = document.getElementById('reset-button');
 const gridDiv = document.getElementById('grid-div');
 
@@ -20,6 +20,7 @@ for (let rowNum = 0; rowNum < gridSize; rowNum++) {
 const gridTiles = document.querySelectorAll('.grid-tile');
 var totalMoves = 0;
 var minMoves = 0;
+
 gridTiles.forEach(gridTile => {
     gridTile.addEventListener('mousedown', () => {
         const coords = gridTile.id.split(/,/);
@@ -39,6 +40,7 @@ gridTiles.forEach(gridTile => {
 
 var completeTiles = 0;
 var timeEnded;
+var efficencyRate;
 const overlayMessage = document.getElementById('overlay-message');
 
 function checkGrid() {
@@ -57,9 +59,10 @@ function checkGrid() {
 
         gridOverlay.style.display = 'block';
 
-        var efficencyRate = minMoves/totalMoves * 100
+        efficencyRate = minMoves/totalMoves * 100
         efficencyRate = efficencyRate.toFixed(2);
 
+        copyResultsButton.style.display = 'flex';
         overlayMessage.textContent = `Finished!
 Time Taken: ${timeTaken}s
 Moves Taken: ${totalMoves}/${minMoves}
@@ -242,6 +245,7 @@ function generatePuzzle() {
     grid.flat().forEach(tile => tile.setPipe());   
 
     overlayMessage.textContent =  `Click to start`;
+    copyResultsButton.style.display = 'none';
     debug(`Minimum Moves: ${minMoves}`);
     gridOverlay.style.display = 'flex';
     gameStart = true;
@@ -310,7 +314,6 @@ function startup() {
 }
 
 const gridOverlay = document.getElementById('grid-overlay');
-const pipeHeader = document.getElementById('pipe-title');
 var timeStarted;
 
 gridOverlay.addEventListener('mousedown', () => {
@@ -318,11 +321,27 @@ gridOverlay.addEventListener('mousedown', () => {
         gridOverlay.style.display = 'none';
         timeStarted = Date.now();
     }
-})
+});
 
+const copyResultsButton = document.getElementById('copy-results-button');
+copyResultsButton.addEventListener('mousedown', () => {
+  navigator.clipboard.writeText(`I did a pipes
+╔════════════
+║Time Taken: ${timeTaken}s
+║Efficiency: ${efficencyRate}%
+║https://harris-n.github.io/ 
+╚════════════════`);
+  debug("Copied Text")
+});
 
+/*
+Finished!
+Time Taken: ${timeTaken}
+Moves Taken: ${totalMoves}${minMoves}
+Move Efficency: ${efficencyRate}%
+*/
 
-pipeHeader.style.backgroundImage = 'url(sprite/pipes-header-rainbow.png)';
+const pipeHeader = document.getElementById('pipe-title');
 
 function getAspectRatio(src, callback) {
     var img = new Image();
@@ -341,9 +360,8 @@ getAspectRatio('sprite/pipes-header-rainbow.png', function(aspectRatio) {
 });
 
 
-var sizeSlider = document.getElementById('size-range');
-var sizeText = document.getElementById('size-textbox');
-
+const sizeSlider = document.getElementById('size-input');
+const sizeText = document.getElementById('size-textbox');
 
 sizeSlider.addEventListener("input", () => {
     adjustDivSize();
@@ -393,7 +411,6 @@ var hideSettings = true;
 
 settingsButton.addEventListener("click", () => {
     hideSettings = !hideSettings;
-    debug(hideSettings);
     if (hideSettings) {
         settingsDiv.style.display = "none";
     } else {

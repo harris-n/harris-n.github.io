@@ -9,18 +9,41 @@
     background-size: contain;
     background-position: center;
     background-repeat: no-repeat;
+    background-image: url(sprite/pipes-header-rainbow.png);
 }
 
 #setting-div{
-    display: flex;
-    flex-direction: row;
+    display: none;
+    flex-direction: column;
     border: 2px solid;
     margin: 1vmin;
     align-items: center;
 }
 
-#size-text {
+#size-div{
     display: flex;
+    flex-direction: row;
+    border: 2px solid;
+    margin: 1vmin;
+    align-items: center;
+    padding: 0.1vmin;
+}
+
+#size-range:hover{
+    opacity: 1; /* Fully shown on mouse-over */
+}
+
+#size-range{
+    border: 2px solid;
+}
+
+#dimensions-div{
+    display: flex;
+    flex-direction: row;
+    border: 2px solid;
+    margin: 1vmin;
+    align-items: center;
+    padding: 0.1vmin;
 }
 
 #grid-div{
@@ -88,14 +111,7 @@
     padding: 10%;
 }
 
-#size-range:hover{
-    opacity: 1; /* Fully shown on mouse-over */
-}
 
-#size-range{
-    border: 2px solid;
-
-}
 
 #debug-textbox{
     white-space: pre-wrap;
