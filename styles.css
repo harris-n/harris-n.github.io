@@ -44,9 +44,15 @@
     margin: 1vmin;
 }
 
-#seed {
-    width: 15rem;
-    height: 8rem;
+#pb-text {    
+    border: 2px solid;
+    margin: 1vmin;
+    width: auto;
+    height: auto;
+    text-align: left;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    white-space: pre-wrap;
 }
 
 #grid-overlay{
@@ -63,8 +69,11 @@
 }
 
 #overlay-message{
+    white-space: pre-wrap;
     display: flex;
-    justify-content: center;
+    justify-content: left;
+    text-align: left;
+    padding: 20%;
 
 }
 
@@ -72,7 +81,19 @@
     opacity: 1; /* Fully shown on mouse-over */
 }
 
-#stats-textbox{
+#debug-text{
+    white-space: pre-wrap;
+    border: 2px solid;
+    margin: 1vmin;
     width: 15rem;
     height: 8rem;
+}
+
+#size-text{
+    border: 2px solid;
+    margin: 1vmin;
+    width: 1.5rem;
+    height: 1rem;
+    font-size: 1rem;
+    text-align: center;
 }

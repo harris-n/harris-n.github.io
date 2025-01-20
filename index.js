@@ -56,13 +56,29 @@ function checkGrid() {
         timeTaken = (timeEnded - timeStarted) / 1000;
 
         gridOverlay.style.display = 'block';
-        overlayMessage.textContent = `done in ${totalMoves}/${minMoves} moves and ${timeTaken}sec.`;
 
+        var efficencyRate = (minMoves/totalMoves).toFixed(4) * 100
+
+        overlayMessage.textContent = `Finished!
+Time Taken: ${timeTaken}
+Moves Taken: ${totalMoves}/${minMoves}
+Move Efficency: ${efficencyRate}%`;
+
+        if (efficencyRate == 100){
+            overlayMessage.textContent += "  Perfect!";
+        }
+        // URGENT update personal best
         updatePersonalBest(timeTaken);
-
     }
 
 }
+
+/*
+Finished!
+Time Taken: ${timeTaken}
+Moves Taken: ${totalMoves}${minMoves}
+Move Efficency: ${efficencyRate}%
+*/
 
 
 class tile {
@@ -113,6 +129,16 @@ class tile {
 
         var i = this.rowNum;
         var j = this.colNum;
+
+        if (sizeSlider.value == 90) {
+            spriteTheme = 'cat';
+        } else if (sizeSlider.value == 10) {
+            spriteTheme = 'frog';
+        } else if (sizeSlider.value == 69) {
+            spriteTheme = 'rabbit';
+        }    
+
+
         document.getElementById(`${i},${j}`).style.backgroundImage = `url(sprite/${spriteTheme}/${this.type}-pipe.png)`;
         var rndNum = Math.floor(Math.random() * 4);
         // for fun, rotates the tiles to its actual orientation
@@ -214,9 +240,9 @@ function generatePuzzle() {
 
     grid.flat().forEach(tile => tile.setPipe());   
 
-    overlayMessage.textContent =  `Click to start ${minMoves}`;
+    overlayMessage.textContent =  `Click to start`;
+    debugTextbox.textContent += `\nMinimum Moves: ${minMoves}`
     gridOverlay.style.display = 'flex';
-    const personalBestTime = getPersonalBest();
     gameStart = true;
 }
 
@@ -290,7 +316,6 @@ gridOverlay.addEventListener('mousedown', () => {
     if (gameStart) {
         gridOverlay.style.display = 'none';
         timeStarted = Date.now();
-        console.log(timeStarted);
     }
 })
 
@@ -316,73 +341,50 @@ getAspectRatio('sprite/pipes-header-rainbow.png', function(aspectRatio) {
 
 
 var sizeSlider = document.getElementById('size-range');
+var sizeText = document.getElementById('size-text');
+
 
 sizeSlider.addEventListener("input", () => {
     adjustDivSize();
 
-    if (sizeSlider.value == 90) {
-        spriteTheme = 'cat';
-    } else if (sizeSlider.value == 10) {
-        spriteTheme = 'frog';
-    } else if (sizeSlider.value == 69) {
-        spriteTheme = 'rabbit';
-    }
-})
+    sizeText.textContent = sizeSlider.value;
 
-var loadButton = document.getElementById('load-button');
+});
 
+const PbResetButton = document.getElementById('pb-reset-button');
+const PbTextbox = document.getElementById('pb-text');
 
-function setCookie(name, value, days) {
-    const date = new Date();
-    date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-    const expires = "expires=" + date.toUTCString();
-    document.cookie = name + "=" + value + ";" + expires + ";path=/";
-}
+PbResetButton.addEventListener("click", () => {
+    localStorage.removeItem("personalBest");
+    displayPersonalBest();
+    var debugtext = debugTextbox.textContent;
+    debugtext += "\nPb Reset";
+    debugTextbox.textContent = debugtext;
+    console.log(debugtext);
+     
+});
 
-function setPersonalBest(time) {
-    setCookie('personalBest', time, 365);
-}
-
-function getCookie(name) {
-    const nameEQ = name + "=";
-    const cookies = document.cookie.split(';');
-    for (let i = 0; i < cookies.length; i++) {
-        let cookie = cookies[i].trim();
-        if (cookie.indexOf(nameEQ) == 0) {
-            return cookie.substring(nameEQ.length, cookie.length);
-        }
-    }
-    return null;
-}
-
-function getPersonalBest() {
-    return getCookie('personalBest');
-}
-
-// Example usage
-const personalBestTime = getPersonalBest();
-
-function updatePersonalBest(newTime) {
-    const currentBest = getPersonalBest();
-    if (!currentBest || newTime < currentBest) {
-        setPersonalBest(newTime);
-
-        overlayMessage.textContent += ` New Personal Best!`;
-    }
-}
-
-// Create a function to delete a cookie
-function deleteCookie(name) {
-    document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC";
-}
-
-// Function to display the personal best time in the textbox
 function displayPersonalBest() {
-    const personalBest = getCookie('personalBest');
-    const textbox = document.getElementById('stats-textbox');
-    if (personalBest) {
-        seed.value = "Personal best: " + personalBest + "s";
-    } else {
-        seed.value = 'No personal best time set';
-    }
+    personalBestTime = Number(localStorage.getItem("personalBest"));
+    PbTextbox.textContent = `Personal Best Time: ${personalBestTime}s`;
+
+    if (!personalBestTime) {
+        localStorage.setItem("personalBest", "Not Set");
+        PbTextbox.textContent = `Personal Best Time: Not Set`;
+    }    
+
 }
+
+function updatePersonalBest(timeTaken) {
+    personalBestTime = localStorage.getItem("personalBest");
+    if (timeTaken < personalBestTime || personalBestTime == "Not Set") {
+        overlayMessage.textContent += ("\nNew Personal Best!");
+        localStorage.setItem("personalBest", timeTaken);
+    }
+
+    displayPersonalBest();
+}
+
+
+
+const debugTextbox = document.getElementById("debug-text")
