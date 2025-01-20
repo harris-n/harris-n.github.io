@@ -13,9 +13,13 @@
 
 
     <div id="main-div">        
-        <div id="pipe-title"> </div>
+        <div id="pipe-title"></div>
 
-        <div id="setting-container"></div>
+        <div id="setting-div">
+            <div id="size-text">Grid Size:</div>
+            <input type="range" min="10" max="90" value="60" id="size-range">
+            <div id="size-textbox"></div>
+        </div>
 
         <div id="grid-div">
             <div id="grid-overlay">
@@ -25,13 +29,12 @@
     
         <div id="buttons-div">
             <button id="reset-button">Start</button>
-            <input type="range" min="10" max="90" value="60" id="size-range">
-            <div id="size-text"></div>
+            <button id="settings-button">Settings</button>
+            <button id="pb-reset-button">Reset Personal Best</button>    
         </div>
 
-        <div id="pb-text"></div>
-        <button id="pb-reset-button">Reset Personal Best</button>    
-        <div id="debug-text"></div>
+        <div id="pb-textbox"></div>
+        <div id="debug-textbox"></div>
 
     </div>
 

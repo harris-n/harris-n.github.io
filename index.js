@@ -57,15 +57,16 @@ function checkGrid() {
 
         gridOverlay.style.display = 'block';
 
-        var efficencyRate = (minMoves/totalMoves).toFixed(4) * 100
+        var efficencyRate = minMoves/totalMoves * 100
+        efficencyRate = efficencyRate.toFixed(2);
 
         overlayMessage.textContent = `Finished!
-Time Taken: ${timeTaken}
+Time Taken: ${timeTaken}s
 Moves Taken: ${totalMoves}/${minMoves}
 Move Efficency: ${efficencyRate}%`;
 
         if (efficencyRate == 100){
-            overlayMessage.textContent += "  Perfect!";
+            overlayMessage.textContent += " Perfect!";
         }
         // URGENT update personal best
         updatePersonalBest(timeTaken);
@@ -241,7 +242,7 @@ function generatePuzzle() {
     grid.flat().forEach(tile => tile.setPipe());   
 
     overlayMessage.textContent =  `Click to start`;
-    debugTextbox.textContent += `\nMinimum Moves: ${minMoves}`
+    debug(`Minimum Moves: ${minMoves}`);
     gridOverlay.style.display = 'flex';
     gameStart = true;
 }
@@ -341,27 +342,21 @@ getAspectRatio('sprite/pipes-header-rainbow.png', function(aspectRatio) {
 
 
 var sizeSlider = document.getElementById('size-range');
-var sizeText = document.getElementById('size-text');
+var sizeText = document.getElementById('size-textbox');
 
 
 sizeSlider.addEventListener("input", () => {
     adjustDivSize();
-
     sizeText.textContent = sizeSlider.value;
-
 });
 
 const PbResetButton = document.getElementById('pb-reset-button');
-const PbTextbox = document.getElementById('pb-text');
+const PbTextbox = document.getElementById('pb-textbox');
 
 PbResetButton.addEventListener("click", () => {
     localStorage.removeItem("personalBest");
     displayPersonalBest();
-    var debugtext = debugTextbox.textContent;
-    debugtext += "\nPb Reset";
-    debugTextbox.textContent = debugtext;
-    console.log(debugtext);
-     
+    debug("Pb reset");
 });
 
 function displayPersonalBest() {
@@ -381,10 +376,27 @@ function updatePersonalBest(timeTaken) {
         overlayMessage.textContent += ("\nNew Personal Best!");
         localStorage.setItem("personalBest", timeTaken);
     }
-
     displayPersonalBest();
 }
 
+const debugTextbox = document.getElementById("debug-textbox");
+var debugtext = debugTextbox.textContent;
 
+function debug(text) {
+    debugtext += `\n${text}`;
+    debugTextbox.textContent = debugtext;     
+}
 
-const debugTextbox = document.getElementById("debug-text")
+const settingsButton = document.getElementById("settings-button");
+const settingsDiv = document.getElementById("setting-div");
+var hideSettings = true;
+
+settingsButton.addEventListener("click", () => {
+    hideSettings = !hideSettings;
+    debug(hideSettings);
+    if (hideSettings) {
+        settingsDiv.style.display = "none";
+    } else {
+        settingsDiv.style.display = "flex";
+    }
+});
