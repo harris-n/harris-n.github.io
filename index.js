@@ -49,17 +49,9 @@ class MersenneTwister {
       return this.extract() % 4;
     }
 }
-
-/* ##########################################################################################
-ADJUSTING SETTINGS
-########################################################################################## */
-
-const gridRowInput = document.getElementById('row-dim-input');
-const gridColInput = document.getElementById('col-dim-input');
-  
   
 /* ##########################################################################################
-CREATING THE PUZZLE
+PUZZLE AND TILE LOGIC
 ########################################################################################## */
 
 class tile {
@@ -192,11 +184,11 @@ class puzzle {
         this.minMoves = 0;
         this.startTime = null;
         this.finishTime;
-        this.timer;
+        this.timer = null;
         this.timeTaken = 0;
         this.puzzleModal = document.getElementById('puzzle-dialog');
         this.generatePuzzle();
-        this.render();
+        this.puzzleDiv = this.render();
     }
 
     generatePuzzle() {
@@ -279,11 +271,14 @@ class puzzle {
 
             if (this.timeTaken == 0) {
                 this.startTime = Date.now();
-                this.startTimer()    
+                this.startTimer();
+                this.puzzleModal.close();
+                console.log(this);
             }
 
-            this.puzzleModal.close();
         });
+
+        return gridDiv;
 
     }
 
@@ -302,23 +297,31 @@ class puzzle {
 
         if (correctTiles == (this.rowNum * this.colNum)) {
             console.log(this); 
-        
+            clearInterval(currentPuzzle.timer);
             this.showResults();
         }
     }
 
     startTimer() {
-        this.timer = setInterval(this.updateTime, 1);
+        this.timer = setInterval(() => {this.updateTime()}, 1000);
     }
 
     updateTime() {
+
+        console.log("logging");
 
         if (this.startTime == null) {
             this.startTime = Date.now();
         }
 
         var currentTime = Date.now();
-        timerTextbox.textContent = currentTime - this.startTime;
+        
+        var elapsedTime = currentTime - this.startTime;
+
+        var timeSeconds = String(Math.floor(elapsedTime / 1000 % 60)).padStart(2, "0");
+        var timeMinutes = String(Math.floor(elapsedTime / (1000 * 60) % 60)).padStart(2, "0");
+
+        timerTextbox.textContent = `${timeMinutes}:${timeSeconds}`;
 
     }
 
@@ -326,7 +329,12 @@ class puzzle {
         this.puzzleModal.showModal();
         this.finishTime = Date.now();
         this.timeTaken = this.finishTime - this.startTime;
-        clearInterval(this.timer);
+
+        var timeMilliseconds = String(Math.floor(this.timeTaken % 1000)).padStart(3, "0");
+        var timeSeconds = String(Math.floor(this.timeTaken / 1000 % 60)).padStart(2, "0");
+        var timeMinutes = String(Math.floor(this.timeTaken / (1000 * 60) % 60)).padStart(2, "0");
+        
+        this.puzzleModal.textContent = `Time: ${timeMinutes}:${timeSeconds}.${timeMilliseconds}`;
     }
 
 }
@@ -350,12 +358,6 @@ const tileDictionary = {
     'true,false,true,true':    {type: 'intersection', rotation: 3},
 }
 
-
-/* ##########################################################################################
-Puzzle Logic
-########################################################################################## */
-
-
 /* ##########################################################################################
 ADJUSTING GRID SIZE RELATIVE TO WINDOW
 ########################################################################################## */
@@ -371,6 +373,8 @@ window.addEventListener('load', () =>{
     gridDiv.style.width = '60vmin';
     gridDiv.style.height = '60vmin';
 });
+
+const headerDiv = document.getElementById("header-div");
 
 function adjustDivSize() {
 
@@ -413,18 +417,21 @@ resetButton.addEventListener("mouseup", () => {
         gridDiv.removeChild(gridDiv.firstChild);
     }
 
-    currentPuzzle = new puzzle(rowDim, colDim, 10000000); // Creates a 4x4 grid
+    currentPuzzle = null;
+    currentPuzzle = new puzzle(rowDim, colDim); // Creates a 4x4 grid
     adjustDivSize();
 
-    PuzzleRect = gridDiv.getBoundingClientRect();
-
-    puzzleModal.style.width = `${PuzzleRect.width}px`;
-    puzzleModal.style.height = `${PuzzleRect.height}px`;
-    puzzleModal.style.top = `${PuzzleRect.top}px`;
-    puzzleModal.style.left = `${PuzzleRect.left}px`;
-    
+    timerTextbox.textContent = "00:00";
     puzzleModal.showModal();
 
     console.log(currentPuzzle);
 });
+
+/* ##########################################################################################
+ADJUSTING SETTINGS
+########################################################################################## */
+
+const gridRowInput = document.getElementById('row-dim-input');
+const gridColInput = document.getElementById('col-dim-input');
+  
 
