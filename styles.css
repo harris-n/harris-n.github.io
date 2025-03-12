@@ -1,49 +1,34 @@
-#main-div{
-    display: flex;
-    flex-direction: column;   
-    align-items: center; 
+* {
+    margin: 0;
+    padding: 0;
 }
 
-#pipe-title{
-    display: flex;
-    background-size: contain;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-image: url(sprite/pipes-header-rainbow.png);
+body {
+    font-family: system-ui;
 }
 
-#setting-div{
-    display: none;
-    flex-direction: column;
-    border: 2px solid;
-    margin: 1vmin;
-    align-items: center;
+button {
+    font: inherit;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    padding-top: 0.2rem;
+    padding-bottom: 0.2rem;
 }
 
-#size-div{
-    display: flex;
-    flex-direction: row;
-    border: 2px solid;
-    margin: 1vmin;
-    align-items: center;
-    padding: 0.1vmin;
+dialog {
+    justify-content: center;
+    text-align: center;
+    border: 1px solid black;
+
 }
 
-#size-range:hover{
-    opacity: 1; /* Fully shown on mouse-over */
+dialog h1{
+    margin: 2rem;
+    margin-top: 20%;
 }
 
-#size-range{
-    border: 2px solid;
-}
-
-#dimensions-div{
-    display: flex;
-    flex-direction: row;
-    border: 2px solid;
-    margin: 1vmin;
-    align-items: center;
-    padding: 0.1vmin;
+dialog::backdrop {
+    background-color: rgba(0, 0, 0, 0.4);
 }
 
 #grid-div{
@@ -54,15 +39,22 @@
 
 .grid-row{
     display: flex;
-    flex: 1;
 }
 
 .grid-tile{
-    position: relative;
-    border: 1px solid black;
     flex: 1;
+    display: flex;
+    aspect-ratio: 1;
+    border: 1px solid black;
     background-size: contain;
-    background-position: center;
+    align-items: center;
+    justify-content: center;
+}
+
+#main-div{
+display: flex;
+flex-direction: column;   
+align-items: center; 
 }
 
 #buttons-div{
@@ -72,61 +64,14 @@
     padding: 0.5vmin;
 }
 
-#reset-button #pb-reset-button{
-    font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
-    font-size: 1.5vmin;
-    size: 3vmin;
-}
-
-#pb-textbox {    
-    border: 2px solid;
-    margin: 1vmin;
-    width: auto;
-    height: auto;
-    text-align: left;
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
-    white-space: pre-wrap;
-}
-
-#grid-overlay{
-    position: absolute;
-    display: none;
-    background-color: rgba(0, 0, 0, 0.75);
-    color: white;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    font-size: 2em;
-    z-index: 9999;
-    overflow: auto;
-}
-
-#overlay-message{
-    white-space: pre-wrap;
-    display: flex;
-    justify-content: left;
-    text-align: left;
-    padding: 10%;
-}
-
-
-
-#debug-textbox{
+#timer-textbox{
     white-space: pre-wrap;
     border: 2px solid;
     margin: 1vmin;
     width: 15rem;
-    height: 8rem;
+    height: 2rem;
+    justify-content: center;
     overflow: auto;
 }
 
-#size-textbox{
-    border: 2px solid;
-    margin: 1vmin;
-    width: 1.5rem;
-    height: 1rem;
-    font-size: 1rem;
-    text-align: center;
-}
+
