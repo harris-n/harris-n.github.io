@@ -1,10 +1,84 @@
-// Make grid
-const resetButton = document.getElementById('reset-button');
+/* ##########################################################################################
+GLOBAL CONSTANTS AND VARIABLES
+########################################################################################## */
+
+// DOM Elements
 const gridDiv = document.getElementById('grid-div');
-
+const resetButton = document.getElementById('reset-button');
 const timerTextbox = document.getElementById("timer-textbox");
+const sizeSlider = document.getElementById('size-input');
+const gridRowInput = document.getElementById('row-dim-input');
+const gridColInput = document.getElementById('col-dim-input');
+const headerDiv = document.getElementById("header-div");
+const puzzleModal = document.getElementById('puzzle-dialog');
 
-// RNG seed thing
+// Game State
+let currentPuzzle = null;
+let intervalIds = [];
+let elapsedTime = 0;
+
+// Modal Content
+const START_MODAL_CONTENT = "Click anywhere to start the puzzle!";
+const END_MODAL_CONTENT = (rowNum, colNum, time) => `
+    <div class="modal-content">
+        Grid Size: ${rowNum} x ${colNum}<br>Time: ${time}
+        <button class="close-button">Close</button>
+    </div>`;
+
+// Tile Configuration
+const tileDictionary = {
+    'true,false,false,false':  {type: 'end',          rotation: 0},
+    'false,true,false,false':  {type: 'end',          rotation: 1},
+    'false,false,true,false':  {type: 'end',          rotation: 2},
+    'false,false,false,true':  {type: 'end',          rotation: 3},
+    'true,false,true,false':   {type: 'straight',     rotation: 0},
+    'false,true,false,true':   {type: 'straight',     rotation: 1},
+    'true,false,false,true':   {type: 'curved',       rotation: 0},
+    'true,true,false,false':   {type: 'curved',       rotation: 1},
+    'false,true,true,false':   {type: 'curved',       rotation: 2},
+    'false,false,true,true':   {type: 'curved',       rotation: 3},
+    'true,true,false,true':    {type: 'intersection', rotation: 0},
+    'true,true,true,false':    {type: 'intersection', rotation: 1},
+    'false,true,true,true':    {type: 'intersection', rotation: 2},
+    'true,false,true,true':    {type: 'intersection', rotation: 3},
+}
+
+/* ##########################################################################################
+EVENT LISTENERS
+########################################################################################## */
+
+// Window and UI Events
+window.addEventListener('resize', adjustDivSize);
+window.addEventListener('load', () => {
+    gridDiv.style.width = '60vmin';
+    gridDiv.style.height = '60vmin';
+});
+
+// User Input Events
+sizeSlider.addEventListener("input", adjustDivSize);
+resetButton.addEventListener("mouseup", () => {
+    const rowDim = gridRowInput.value;
+    const colDim = gridColInput.value;
+
+    while (gridDiv.firstChild) {
+        gridDiv.removeChild(gridDiv.firstChild);
+    }
+    
+    if (currentPuzzle !== null) {
+        currentPuzzle.stopTimer();
+        elapsedTime = 0;
+    }
+
+    currentPuzzle = new puzzle(rowDim, colDim);
+    adjustDivSize();
+    timerTextbox.textContent = "00:00";
+    puzzleModal.textContent = START_MODAL_CONTENT;
+    puzzleModal.showModal();
+});
+
+/* ##########################################################################################
+CLASS DEFINITIONS
+########################################################################################## */
 
 class MersenneTwister {
     constructor(seed) {
@@ -73,7 +147,7 @@ class tile {
         const div = document.createElement('div');
         div.id = `${this.rowNum},${this.colNum}`;
         div.className = 'grid-tile';
-        div.addEventListener('mousedown', (event) => this.rotateTile(event));
+        div.addEventListener('mousedown', () => this.rotateTile());
 
         // Find tile type
         let tileType = tileDictionary[this.connections.join(',')]
@@ -183,23 +257,27 @@ class puzzle {
         this.rng = this.generateRNG(seed);
         this.minMoves = 0;
         this.startTime = null;
-        this.finishTime;
+        this.finishTime = null;
         this.timer = null;
         this.timeTaken = 0;
         this.puzzleModal = document.getElementById('puzzle-dialog');
+        this.startPuzzleHandler = this.startPuzzle.bind(this);
+        
         this.generatePuzzle();
         this.puzzleDiv = this.render();
     }
 
     generatePuzzle() {
-        // DFS maze generation method
-        var currentTile = this.gridTiles[this.rng.next()][this.rng.next()];
-        var stackTiles = [];
-        var finishGenerating = false; 
+        // Start from a random tile
+        const startRow = this.rng.next();
+        const startCol = this.rng.next();
+        let currentTile = this.gridTiles[startRow][startCol];
+        const stackTiles = [];
 
-        while (!finishGenerating) {
+        // DFS maze generation
+        while (true) {
             currentTile.visited = true;
-            var nextTile = currentTile.chooseNeighbour();
+            const nextTile = currentTile.chooseNeighbour();
 
             if (nextTile) {
                 nextTile.visited = true;
@@ -207,51 +285,36 @@ class puzzle {
                 currentTile.addConnection(nextTile);
                 currentTile = nextTile;
             } else if (stackTiles.length > 0) {
-                while (this.checkFourway(stackTiles)) {
+                // Backtrack until we find a tile with unvisited neighbors
+                while (stackTiles.length > 0 && this.checkFourway(stackTiles)) {
                     stackTiles.pop();
                 }
+                if (stackTiles.length === 0) break;
                 currentTile = stackTiles.pop();
             } else {
-                finishGenerating = true;
-            }   
+                break;
+            }
         }
     }
 
     checkFourway(stackTiles) {
-        var trueCount = 0;
-        var lastStackTile = stackTiles[stackTiles.length-1];
-     
-        for (let i = 0; i < 4; i++) {
-            if (lastStackTile.connections[i] == true) {
-                trueCount++;
-            }
-        }
-        if (trueCount >= 3) {
-            return true;
-        } 
-        return false;
+        if (!stackTiles.length) return false;
+        
+        const lastStackTile = stackTiles[stackTiles.length - 1];
+        const trueCount = lastStackTile.connections.filter(conn => conn).length;
+        return trueCount >= 3;
     }
 
     generateRNG(seed) {
-        if (seed == 0) {
-            seed = Math.round(Math.random() * 10000000);
-        }
-
-        console.log(seed)
-        let mt = new MersenneTwister(seed);
-        return mt;
+        const finalSeed = seed === 0 ? Math.round(Math.random() * 10000000) : seed;
+        console.log(`Using seed: ${finalSeed}`);
+        return new MersenneTwister(finalSeed);
     }
 
     generateGrid(rowNum, colNum) {
-        let grid = [];
-        for (let i = 0; i < rowNum; i++) {
-            let row = [];
-            for (let j = 0; j < colNum; j++) {
-                row.push(new tile(i,j, this));
-            }
-            grid.push(row);
-        }
-        return grid;
+        return Array.from({ length: rowNum }, (_, i) => 
+            Array.from({ length: colNum }, (_, j) => new tile(i, j, this))
+        );
     }
 
     render() {
@@ -266,63 +329,61 @@ class puzzle {
             gridDiv.appendChild(rowDiv);
         });
 
-
-        this.puzzleModal.addEventListener("mousedown", () => {
-
-            if (this.timeTaken == 0) {
-                this.startTime = Date.now();
-                this.startTimer();
-                this.puzzleModal.close();
-                console.log(this);
-            }
-
-        });
+        this.puzzleModal.removeEventListener("mousedown", this.startPuzzleHandler);
+        this.puzzleModal.addEventListener("mousedown", this.startPuzzleHandler);
 
         return gridDiv;
+    }
 
+    startPuzzle() {
+        if (this.timeTaken === 0) {
+            this.startTime = Date.now();
+            this.startTimer();
+            this.puzzleModal.close();
+        }
     }
 
     checkGrid() {
+        const totalTiles = this.rowNum * this.colNum;
+        const correctTiles = this.gridTiles.flat().filter(tile => 
+            tile.currentRotation === tile.solRotation
+        ).length;
 
-        correctTiles = 0;
-
-        this.gridTiles.forEach(element => {
-            element.forEach((element) => {
-                if (element.currentRotation == element.solRotation) {
-                    correctTiles += 1;
-                }
-            })
-          
-        });
-
-        if (correctTiles == (this.rowNum * this.colNum)) {
-            console.log(this); 
-            clearInterval(currentPuzzle.timer);
+        if (correctTiles === totalTiles) {
+            this.stopTimer();
             this.showResults();
         }
     }
 
     startTimer() {
-        this.timer = setInterval(() => {this.updateTime()}, 1000);
+        this.stopTimer();
+        
+        timerTextbox.textContent = "00:00";
+        elapsedTime = 0;
+        
+        this.timer = setInterval(() => this.updateTime(), 500);
+        intervalIds.push(this.timer);
+    }
+
+    stopTimer() {
+        intervalIds.forEach((id) => {
+            clearInterval(id);
+        });
+        intervalIds = []; 
     }
 
     updateTime() {
-
-        console.log("logging");
-
-        if (this.startTime == null) {
+        if (!this.startTime) {
             this.startTime = Date.now();
         }
 
-        var currentTime = Date.now();
+        const currentTime = Date.now();
+        elapsedTime = currentTime - this.startTime;
+
+        const minutes = Math.floor(elapsedTime / (1000 * 60));
+        const seconds = Math.floor((elapsedTime % (1000 * 60)) / 1000);
         
-        var elapsedTime = currentTime - this.startTime;
-
-        var timeSeconds = String(Math.floor(elapsedTime / 1000 % 60)).padStart(2, "0");
-        var timeMinutes = String(Math.floor(elapsedTime / (1000 * 60) % 60)).padStart(2, "0");
-
-        timerTextbox.textContent = `${timeMinutes}:${timeSeconds}`;
-
+        timerTextbox.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
     }
 
     showResults() {
@@ -330,59 +391,28 @@ class puzzle {
         this.finishTime = Date.now();
         this.timeTaken = this.finishTime - this.startTime;
 
-        var timeMilliseconds = String(Math.floor(this.timeTaken % 1000)).padStart(3, "0");
-        var timeSeconds = String(Math.floor(this.timeTaken / 1000 % 60)).padStart(2, "0");
-        var timeMinutes = String(Math.floor(this.timeTaken / (1000 * 60) % 60)).padStart(2, "0");
+        const minutes = Math.floor(this.timeTaken / (1000 * 60));
+        const seconds = Math.floor((this.timeTaken % (1000 * 60)) / 1000);
+        const milliseconds = Math.floor(this.timeTaken % 1000);
         
-        this.puzzleModal.textContent = `Time: ${timeMinutes}:${timeSeconds}.${timeMilliseconds}`;
+        const timeString = minutes > 0 
+            ? `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(milliseconds).padStart(3, "0")}`
+            : `${String(seconds).padStart(2, "0")}.${String(milliseconds).padStart(3, "0")}`;
+        
+        this.puzzleModal.innerHTML = END_MODAL_CONTENT(this.rowNum, this.colNum, timeString);
+        
+        // Add event listener to the close button
+        const closeButton = this.puzzleModal.querySelector('.close-button');
+        closeButton.addEventListener('click', () => this.puzzleModal.close());
     }
-
 }
-
-var correctTiles = 0;
-
-const tileDictionary = {
-    'true,false,false,false':  {type: 'end',          rotation: 0},
-    'false,true,false,false':  {type: 'end',          rotation: 1},
-    'false,false,true,false':  {type: 'end',          rotation: 2},
-    'false,false,false,true':  {type: 'end',          rotation: 3},
-    'true,false,true,false':   {type: 'straight',     rotation: 0},
-    'false,true,false,true':   {type: 'straight',     rotation: 1},
-    'true,false,false,true':   {type: 'curved',       rotation: 0},
-    'true,true,false,false':   {type: 'curved',       rotation: 1},
-    'false,true,true,false':   {type: 'curved',       rotation: 2},
-    'false,false,true,true':   {type: 'curved',       rotation: 3},
-    'true,true,false,true':    {type: 'intersection', rotation: 0},
-    'true,true,true,false':    {type: 'intersection', rotation: 1},
-    'false,true,true,true':    {type: 'intersection', rotation: 2},
-    'true,false,true,true':    {type: 'intersection', rotation: 3},
-}
-
-/* ##########################################################################################
-ADJUSTING GRID SIZE RELATIVE TO WINDOW
-########################################################################################## */
-
-const sizeSlider = document.getElementById('size-input');
-
-sizeSlider.addEventListener("input", () => {
-    adjustDivSize();
-});
-
-window.addEventListener('resize', adjustDivSize);
-window.addEventListener('load', () =>{
-    gridDiv.style.width = '60vmin';
-    gridDiv.style.height = '60vmin';
-});
-
-const headerDiv = document.getElementById("header-div");
 
 function adjustDivSize() {
-
     gridDiv.style.width = 'auto';
     gridDiv.style.height = 'auto';
 
-    var rowDim = gridRowInput.value;
-    var colDim = gridColInput.value;
+    const rowDim = gridRowInput.value;
+    const colDim = gridColInput.value;
 
     const winHeight = Math.round(window.innerHeight * (sizeSlider.value/100) / colDim);
     const winWidth = Math.round(window.innerWidth * (sizeSlider.value/100) / rowDim);
@@ -394,44 +424,12 @@ function adjustDivSize() {
     gridTiles.forEach((gridTile) => {
         gridTile.style.height = `${tileSize}`;
         gridTile.style.window = `${tileSize}`;
-    })
+    });
 
-    PuzzleRect = gridDiv.getBoundingClientRect();
+    const puzzleRect = gridDiv.getBoundingClientRect();
 
-    puzzleModal.style.width = `${PuzzleRect.width}px`;
-    puzzleModal.style.height = `${PuzzleRect.height}px`;
-    puzzleModal.style.top = `${PuzzleRect.top}px`;
-    puzzleModal.style.left = `${PuzzleRect.left}px`;
+    puzzleModal.style.width = `${puzzleRect.width}px`;
+    puzzleModal.style.height = `${puzzleRect.height}px`;
+    puzzleModal.style.top = `${puzzleRect.top}px`;
+    puzzleModal.style.left = `${puzzleRect.left}px`;
 }
-
-var currentPuzzle;
-const puzzleModal = document.getElementById('puzzle-dialog');
-var PuzzleRect;
-
-resetButton.addEventListener("mouseup", () => {
-
-    var rowDim = gridRowInput.value;
-    var colDim = gridColInput.value;
-
-    while (gridDiv.firstChild) {
-        gridDiv.removeChild(gridDiv.firstChild);
-    }
-
-    currentPuzzle = null;
-    currentPuzzle = new puzzle(rowDim, colDim); // Creates a 4x4 grid
-    adjustDivSize();
-
-    timerTextbox.textContent = "00:00";
-    puzzleModal.showModal();
-
-    console.log(currentPuzzle);
-});
-
-/* ##########################################################################################
-ADJUSTING SETTINGS
-########################################################################################## */
-
-const gridRowInput = document.getElementById('row-dim-input');
-const gridColInput = document.getElementById('col-dim-input');
-  
-
