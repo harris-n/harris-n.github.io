@@ -1,5 +1,86 @@
 /* ##########################################################################################
-GLOBAL CONSTANTS AND VARIABLES
+UTILITY FUNCTIONS
+########################################################################################## */
+
+function adjustDivSize() {
+    const scale = sizeSlider.value / 100;
+    
+    // Calculate the maximum size that fits in the viewport
+    const maxHeight = window.innerHeight * scale;
+    const maxWidth = window.innerWidth * scale;
+    const size = Math.min(maxHeight, maxWidth);
+    
+    // Account for the outer border in the total size
+    const totalSize = Math.floor(size);
+    gridDiv.style.width = `${totalSize}px`;
+    gridDiv.style.height = `${totalSize}px`;
+
+    // Get the grid's position and update modal to match exactly
+    const rect = gridDiv.getBoundingClientRect();
+    puzzleModal.style.width = `${rect.width}px`;
+    puzzleModal.style.height = `${rect.height}px`;
+    puzzleModal.style.top = `${window.scrollY + rect.top}px`;
+    puzzleModal.style.left = `${window.scrollX + rect.left}px`;
+}
+
+// Load saved preferences
+const loadSavedPreferences = () => {
+    // Load dark mode preference
+    const darkMode = localStorage.getItem('darkMode') === 'true';
+    if (darkMode) {
+        document.documentElement.classList.add('dark-mode');
+        darkModeToggle.checked = true;
+    }
+
+    // Load display size preference
+    const savedSize = localStorage.getItem('displaySize');
+    if (savedSize) {
+        sizeSlider.value = savedSize;
+    } else {
+        sizeSlider.value = '60'; // Default to 60% if no saved preference
+        localStorage.setItem('displaySize', '60');
+    }
+    adjustDivSize(); // Apply the size immediately
+
+    // Load grid dimensions
+    const savedRows = localStorage.getItem('gridRows');
+    const savedCols = localStorage.getItem('gridCols');
+    if (savedRows) gridRowInput.value = savedRows;
+    if (savedCols) gridColInput.value = savedCols;
+};
+
+// Clear all saved preferences and reset to defaults
+const clearPreferences = () => {
+    // Default values
+    const defaults = {
+        displaySize: '60',
+        darkMode: false,
+        gridRows: '5',
+        gridCols: '5'
+    };
+
+    // Clear all storage
+    localStorage.clear();
+
+    // Reset UI elements to defaults
+    sizeSlider.value = defaults.displaySize;
+    darkModeToggle.checked = defaults.darkMode;
+    gridRowInput.value = defaults.gridRows;
+    gridColInput.value = defaults.gridCols;
+    document.documentElement.classList.remove('dark-mode');
+
+    // Apply the default display size
+    adjustDivSize();
+
+    // Regenerate the puzzle with default settings
+    resetButton.click();
+
+    console.log('All preferences have been reset to defaults');
+    return true;
+};
+
+/* ##########################################################################################
+DOM ELEMENTS AND CONSTANTS
 ########################################################################################## */
 
 // DOM Elements
@@ -7,30 +88,67 @@ const gridDiv = document.getElementById('grid-div');
 const resetButton = document.getElementById('reset-button');
 const timerTextbox = document.getElementById("timer-textbox");
 const sizeSlider = document.getElementById('size-input');
+const sizeValue = document.getElementById('size-value');
 const gridRowInput = document.getElementById('row-dim-input');
 const gridColInput = document.getElementById('col-dim-input');
+const seedInput = document.getElementById('seed-input');
 const headerDiv = document.getElementById("header-div");
 const puzzleModal = document.getElementById('puzzle-dialog');
+const settingsDiv = document.getElementById('settings-div');
+const settingsToggle = document.getElementById('settings-toggle');
+const darkModeToggle = document.getElementById('dark-mode-toggle');
+
+// Make clearPreferences available globally for console access
+window.clearPreferences = clearPreferences;
+
+// Create notification banner
+const notificationBanner = document.createElement('div');
+notificationBanner.id = 'notification-banner';
+notificationBanner.innerHTML = `
+    <div class="config-text"></div>
+    <button class="close-notification">&times;</button>
+`;
+document.body.insertBefore(notificationBanner, document.body.firstChild);
 
 // Game State
 let currentPuzzle = null;
 let intervalIds = [];
 let elapsedTime = 0;
 
-// Modal Content
-const START_MODAL_CONTENT = "Click anywhere to start the puzzle!";
-const END_MODAL_CONTENT = (rowNum, colNum, time) => `
+// Modal Content Templates
+const START_MODAL_CONTENT = (config = null) => {
+    if (config) {
+        return `
     <div class="modal-content">
-        Grid Size: ${rowNum} x ${colNum}<br>Time: ${time}
+        Puzzle configuration detected!
+        <div class="result-text">
+            Grid Size: ${config.rows} × ${config.cols}${config.seed ? `<br>Seed: ${config.seed}` : ''}
+        </div>
+        Click anywhere to start the puzzle!
+    </div>`;
+    }
+    return `
+    <div class="modal-content">
+        Click anywhere to start the puzzle!
+    </div>`;
+};
+
+const END_MODAL_CONTENT = (rowNum, colNum, time, seed) => `
+    <div class="modal-content">
+        Puzzle Complete!
+        <div class="result-text">
+            Grid Size: ${rowNum} × ${colNum}<br>
+            Time: ${time}${seed ? `<br>Seed: ${seed}` : ''}
+        </div>
         <div class="button-group">
             <button class="close-button">Close</button>
             <button class="copy-button">Copy Result</button>
         </div>
     </div>`;
 
-const RESULT_CONTENT = (rowNum, colNum, time) => `Pipes Puzzle Result:
-Grid Size: ${rowNum} x ${colNum}
-Time: ${time}`;
+const RESULT_CONTENT = (rowNum, colNum, time, seed) => `Pipes Puzzle Result:
+Grid Size: ${rowNum} × ${colNum}
+Time: ${time}${seed ? `\nSeed: ${seed}` : ''}`;
 
 // Tile Configuration
 const tileDictionary = {
@@ -56,16 +174,110 @@ EVENT LISTENERS
 
 // Window and UI Events
 window.addEventListener('resize', adjustDivSize);
+window.addEventListener('scroll', adjustDivSize);
+
+// Initialize game and handle URL parameters
 window.addEventListener('load', () => {
-    gridDiv.style.width = '60vmin';
-    gridDiv.style.height = '60vmin';
+    // Load saved preferences first
+    loadSavedPreferences();
+    
+    // Handle URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const seedParam = urlParams.get('seed');
+    const rowParam = urlParams.get('rows');
+    const colParam = urlParams.get('cols');
+    
+    let config = null;
+    
+    if (rowParam || colParam || seedParam) {
+        config = {
+            rows: parseInt(rowParam) || gridRowInput.value,
+            cols: parseInt(colParam) || gridColInput.value,
+            seed: parseInt(seedParam) || 0
+        };
+        
+        if (!isNaN(config.rows) && config.rows > 0) {
+            gridRowInput.value = config.rows;
+            localStorage.setItem('gridRows', config.rows);
+        }
+        if (!isNaN(config.cols) && config.cols > 0) {
+            gridColInput.value = config.cols;
+            localStorage.setItem('gridCols', config.cols);
+        }
+        if (!isNaN(config.seed)) {
+            seedInput.value = config.seed || '';
+        }
+
+        // Show notification
+        const configText = `Puzzle configuration loaded: ${config.rows} × ${config.cols}${config.seed ? ` with seed ${config.seed}` : ''}`;
+        notificationBanner.querySelector('.config-text').textContent = configText;
+        notificationBanner.classList.add('show');
+
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            notificationBanner.classList.remove('show');
+        }, 2500);
+    }
+
+    // Remove parameters from URL
+    urlParams.delete('rows');
+    urlParams.delete('cols');
+    urlParams.delete('seed');
+    const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+    window.history.replaceState({}, '', newUrl);
+
+    // Initialize puzzle
+    resetButton.click();
+});
+
+// Add notification close button handler
+notificationBanner.querySelector('.close-notification').addEventListener('click', () => {
+    notificationBanner.classList.remove('show');
 });
 
 // User Input Events
-sizeSlider.addEventListener("input", adjustDivSize);
+sizeSlider.addEventListener("input", () => {
+    adjustDivSize();
+    localStorage.setItem('displaySize', sizeSlider.value);
+});
+
+// Seed input handling
+seedInput.addEventListener("keydown", (e) => {
+    // Allow: backspace, delete, tab, escape, enter
+    if ([8, 46, 9, 27, 13].includes(e.keyCode) ||
+        // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+        (e.ctrlKey === true && [65, 67, 86, 88].includes(e.keyCode)) ||
+        // Allow: home, end, left, right
+        (e.keyCode >= 35 && e.keyCode <= 39)) {
+        return;
+    }
+    // Block 'e', '-', '.'
+    if (['e', 'E', '-', '.'].includes(e.key)) {
+        e.preventDefault();
+        return;
+    }
+    // Block any non-number
+    if (!/[0-9]/.test(e.key)) {
+        e.preventDefault();
+    }
+});
+
+seedInput.addEventListener("input", () => {
+    const seedValue = seedInput.value;
+    if (seedValue === "") {
+        resetButton.disabled = false;
+    } else {
+        const numValue = parseInt(seedValue);
+        resetButton.disabled = isNaN(numValue);
+    }
+});
+
 resetButton.addEventListener("mouseup", () => {
+    if (resetButton.disabled) return;
+    
     const rowDim = gridRowInput.value;
     const colDim = gridColInput.value;
+    const seed = seedInput.value ? parseInt(seedInput.value) : 0;
 
     while (gridDiv.firstChild) {
         gridDiv.removeChild(gridDiv.firstChild);
@@ -76,15 +288,35 @@ resetButton.addEventListener("mouseup", () => {
         elapsedTime = 0;
     }
 
-    currentPuzzle = new puzzle(rowDim, colDim);
+    currentPuzzle = new puzzle(rowDim, colDim, seed);
     adjustDivSize();
     timerTextbox.textContent = "00:00";
-    puzzleModal.textContent = START_MODAL_CONTENT;
+    puzzleModal.innerHTML = START_MODAL_CONTENT();
     puzzleModal.showModal();
 });
 
+// Settings toggle
+settingsToggle.addEventListener('click', () => {
+    settingsDiv.classList.toggle('collapsed');
+});
+
+// Dark mode toggle
+darkModeToggle.addEventListener('change', () => {
+    document.documentElement.classList.toggle('dark-mode');
+    localStorage.setItem('darkMode', darkModeToggle.checked);
+});
+
+// Update grid dimension storage when changed
+gridRowInput.addEventListener('change', () => {
+    localStorage.setItem('gridRows', gridRowInput.value);
+});
+
+gridColInput.addEventListener('change', () => {
+    localStorage.setItem('gridCols', gridColInput.value);
+});
+
 /* ##########################################################################################
-CLASS DEFINITIONS
+GAME CLASSES
 ########################################################################################## */
 
 class MersenneTwister {
@@ -131,10 +363,6 @@ class MersenneTwister {
     }
 }
   
-/* ##########################################################################################
-PUZZLE AND TILE LOGIC
-########################################################################################## */
-
 class tile {
     constructor(rowNum, colNum, puzzle) {
         this.rowNum = rowNum;
@@ -160,7 +388,7 @@ class tile {
         let tileType = tileDictionary[this.connections.join(',')]
         this.type = tileType.type;
         this.solRotation = tileType.rotation;
-        this.currentRotation += tileType.rotation;
+        this.currentRotation = tileType.rotation;
 
         div.style.backgroundImage = `url(sprite/${this.type}-pipe.png)`;
 
@@ -168,13 +396,13 @@ class tile {
         var rndNum = puzzle.rng.next();
 
         if (this.type !== 'straight') {
-            this.addedRotation = rndNum;
-            this.currentRotation += rndNum; 
-            puzzle.minMoves += (4 - rndNum) % 4;
+            this.addedRotation = rndNum % 4;  // Ensure in range 0-3
+            this.currentRotation = (this.currentRotation + this.addedRotation) % 4;  // Keep in range 0-3
+            puzzle.minMoves += (4 - this.addedRotation) % 4;
         } else {
-            this.addedRotation = rndNum % 2;
-            this.currentRotation += rndNum % 2;
-            puzzle.minMoves += (4 - rndNum) % 2;
+            this.addedRotation = rndNum % 2;  // Ensure in range 0-1
+            this.currentRotation = (this.currentRotation + this.addedRotation) % 2;  // Keep in range 0-1
+            puzzle.minMoves += (2 - this.addedRotation) % 2;
         }
 
         div.style.transform = `rotate(${this.currentRotation*90}deg)`;
@@ -236,7 +464,6 @@ class tile {
 
 
     rotateTile(){
-
         if (this.puzzle.timeTaken > 0) {
             return
         }
@@ -244,9 +471,9 @@ class tile {
         this.timesClicked += 1;
 
         if (this.type !== 'straight') {
-            this.currentRotation = (this.currentRotation + 1) % 4;
+            this.currentRotation = (this.currentRotation + 1) % 4;  // Keep in range 0-3
         } else {
-            this.currentRotation = (this.currentRotation + 1) % 2;
+            this.currentRotation = (this.currentRotation + 1) % 2;  // Keep in range 0-1
         }
         
         this.div.style.transform = `rotate(${this.currentRotation*90}deg)`;
@@ -260,6 +487,7 @@ class puzzle {
     constructor(rowNum, colNum, seed = 0) {
         this.rowNum = rowNum
         this.colNum = colNum
+        this.seed = seed
         this.gridTiles = this.generateGrid(rowNum, colNum);    
         this.rng = this.generateRNG(seed);
         this.minMoves = 0;
@@ -269,7 +497,6 @@ class puzzle {
         this.timeTaken = 0;
         this.puzzleModal = document.getElementById('puzzle-dialog');
         this.startPuzzleHandler = this.startPuzzle.bind(this);
-        
         this.generatePuzzle();
         this.puzzleDiv = this.render();
     }
@@ -385,11 +612,19 @@ class puzzle {
 
     checkGrid() {
         const totalTiles = this.rowNum * this.colNum;
-        const correctTiles = this.gridTiles.flat().filter(tile => 
-            tile.currentRotation === tile.solRotation
-        ).length;
+        const incorrectTiles = this.gridTiles.flat().filter(tile => 
+            tile.currentRotation !== tile.solRotation
+        ).map(tile => ({
+            position: `${tile.rowNum},${tile.colNum}`,
+            type: tile.type,
+            currentRotation: tile.currentRotation,
+            solRotation: tile.solRotation,
+            connections: tile.connections
+        }));
 
-        if (correctTiles === totalTiles) {
+        if (incorrectTiles.length > 0) {
+            console.log('Incorrect tiles:', incorrectTiles);
+        } else {
             this.stopTimer();
             this.showResults();
         }
@@ -436,17 +671,17 @@ class puzzle {
         const milliseconds = Math.floor(this.timeTaken % 1000);
         
         const timeString = minutes > 0 
-            ? `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(milliseconds).padStart(3, "0")}`
-            : `${String(seconds).padStart(2, "0")}.${String(milliseconds).padStart(3, "0")}`;
+            ? `${minutes}:${String(seconds).padStart(2, "0")}.${String(milliseconds).padStart(3, "0")}`
+            : `${seconds}.${String(milliseconds).padStart(3, "0")}`;
         
-        this.puzzleModal.innerHTML = END_MODAL_CONTENT(this.rowNum, this.colNum, timeString);
+        this.puzzleModal.innerHTML = END_MODAL_CONTENT(this.rowNum, this.colNum, timeString, this.seed);
         
         const closeButton = this.puzzleModal.querySelector('.close-button');
         const copyButton = this.puzzleModal.querySelector('.copy-button');
         
         closeButton.addEventListener('click', () => this.puzzleModal.close());
         copyButton.addEventListener('click', () => {
-            const resultText = RESULT_CONTENT(this.rowNum, this.colNum, timeString);
+            const resultText = RESULT_CONTENT(this.rowNum, this.colNum, timeString, this.seed);
             navigator.clipboard.writeText(resultText);
             copyButton.textContent = 'Copied!';
             setTimeout(() => {
@@ -454,31 +689,4 @@ class puzzle {
             }, 2000);
         });
     }
-}
-
-function adjustDivSize() {
-    gridDiv.style.width = 'auto';
-    gridDiv.style.height = 'auto';
-
-    const rowDim = gridRowInput.value;
-    const colDim = gridColInput.value;
-
-    const winHeight = Math.round(window.innerHeight * (sizeSlider.value/100) / colDim);
-    const winWidth = Math.round(window.innerWidth * (sizeSlider.value/100) / rowDim);
-
-    const tileSize = Math.min(winWidth, winHeight);
-    
-    const gridTiles = document.querySelectorAll('div.grid-tile');
-
-    gridTiles.forEach((gridTile) => {
-        gridTile.style.height = `${tileSize}`;
-        gridTile.style.window = `${tileSize}`;
-    });
-
-    const puzzleRect = gridDiv.getBoundingClientRect();
-
-    puzzleModal.style.width = `${puzzleRect.width}px`;
-    puzzleModal.style.height = `${puzzleRect.height}px`;
-    puzzleModal.style.top = `${puzzleRect.top}px`;
-    puzzleModal.style.left = `${puzzleRect.left}px`;
 }

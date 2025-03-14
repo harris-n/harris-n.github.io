@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -6,6 +7,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pipes Player</title>
     <link rel="stylesheet" href="styles.css">
+    <script>
+        // Check dark mode preference before page loads
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.documentElement.classList.add('dark-mode');
+        }
+    </script>
 
 </head>
 
@@ -30,16 +37,46 @@
         
         <dialog id="puzzle-dialog"></dialog>
 
-        <div id="buttons-div">
-            <button id="reset-button">Start</button>
-            <input type="number" min="4", max="20", value="5", id="row-dim-input">
-            <input type="number" min="4", max="20", value="5", id="col-dim-input">
-            <div id="size-div">
-                Grid Size:
-                <input type="range" min="10" max="90" value="60" id="size-input">
-                <div id="size-textbox"></div>
+        <div class="button-container">
+            <button id="settings-toggle">⚙️ Settings</button>
+            <button id="reset-button">Generate Puzzle</button>
+        </div>
+
+        <div id="settings-div" class="collapsed">
+
+            <div class="settings-group">
+                <label>Display Size</label>
+                <div class="input-group">
+                    <input type="range" min="10" max="90" value="60" id="size-input">
+                </div>
+            </div>
+            
+            <div class="settings-group">
+                <label>Dark Mode</label>
+                <div class="input-group">
+                    <input type="checkbox" id="dark-mode-toggle">
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <label>Grid Size</label>
+                <div class="input-group">
+                    <input type="number" min="4" max="20" value="5" id="row-dim-input" aria-label="Rows">
+                    <span>×</span>
+                    <input type="number" min="4" max="20" value="5" id="col-dim-input" aria-label="Columns">
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <label>Seed (optional)</label>
+                <input type="number" 
+                       id="seed-input" 
+                       placeholder="Numbers only" 
+                       min="0" 
+                       title="Enter a positive number to generate the same puzzle again">
             </div>
         </div>
+
 
         <div id="timer-textbox">00:00</div>
 
