@@ -22,8 +22,15 @@ const START_MODAL_CONTENT = "Click anywhere to start the puzzle!";
 const END_MODAL_CONTENT = (rowNum, colNum, time) => `
     <div class="modal-content">
         Grid Size: ${rowNum} x ${colNum}<br>Time: ${time}
-        <button class="close-button">Close</button>
+        <div class="button-group">
+            <button class="close-button">Close</button>
+            <button class="copy-button">Copy Result</button>
+        </div>
     </div>`;
+
+const RESULT_CONTENT = (rowNum, colNum, time) => `Pipes Puzzle Result:
+Grid Size: ${rowNum} x ${colNum}
+Time: ${time}`;
 
 // Tile Configuration
 const tileDictionary = {
@@ -268,33 +275,66 @@ class puzzle {
     }
 
     generatePuzzle() {
-        // Start from a random tile
-        const startRow = this.rng.next();
-        const startCol = this.rng.next();
+        // Start from a random tile within grid bounds
+        const startRow = this.rng.next() % this.rowNum;
+        const startCol = this.rng.next() % this.colNum;
         let currentTile = this.gridTiles[startRow][startCol];
         const stackTiles = [];
+        let pathLength = 0;
+        const MAX_PATH_LENGTH = 5;  // Maximum steps before forcing a backtrack
 
         // DFS maze generation
         while (true) {
             currentTile.visited = true;
             const nextTile = currentTile.chooseNeighbour();
 
-            if (nextTile) {
+            // Check if we've created enough connections
+            const unvisitedCount = this.gridTiles.flat().filter(tile => !tile.visited).length;
+            if (unvisitedCount === 0) break;
+
+            if (nextTile && pathLength < MAX_PATH_LENGTH) {
                 nextTile.visited = true;
                 stackTiles.push(currentTile);
                 currentTile.addConnection(nextTile);
                 currentTile = nextTile;
-            } else if (stackTiles.length > 0) {
-                // Backtrack until we find a tile with unvisited neighbors
+                pathLength++;
+            } else {
+                // Backtrack if path is too long or no unvisited neighbors
                 while (stackTiles.length > 0 && this.checkFourway(stackTiles)) {
                     stackTiles.pop();
                 }
                 if (stackTiles.length === 0) break;
                 currentTile = stackTiles.pop();
-            } else {
-                break;
+                pathLength = 0;  // Reset path length when backtracking
             }
         }
+
+        // Ensure all tiles are connected
+        const unconnectedTiles = this.gridTiles.flat().filter(tile => 
+            tile.connections.every(conn => !conn)
+        );
+
+        // Connect any isolated tiles to their neighbors
+        unconnectedTiles.forEach(tile => {
+            const neighbors = this.getValidNeighbors(tile);
+            if (neighbors.length > 0) {
+                const randomNeighbor = neighbors[this.rng.next() % neighbors.length];
+                tile.addConnection(randomNeighbor);
+            }
+        });
+    }
+
+    getValidNeighbors(tile) {
+        const neighbors = [];
+        const { rowNum, colNum } = tile;
+
+        // Check all four directions
+        if (rowNum > 0) neighbors.push(this.gridTiles[rowNum - 1][colNum]);
+        if (colNum < this.colNum - 1) neighbors.push(this.gridTiles[rowNum][colNum + 1]);
+        if (rowNum < this.rowNum - 1) neighbors.push(this.gridTiles[rowNum + 1][colNum]);
+        if (colNum > 0) neighbors.push(this.gridTiles[rowNum][colNum - 1]);
+
+        return neighbors.filter(n => n.connections.filter(conn => conn).length < 4);
     }
 
     checkFourway(stackTiles) {
@@ -401,9 +441,18 @@ class puzzle {
         
         this.puzzleModal.innerHTML = END_MODAL_CONTENT(this.rowNum, this.colNum, timeString);
         
-        // Add event listener to the close button
         const closeButton = this.puzzleModal.querySelector('.close-button');
+        const copyButton = this.puzzleModal.querySelector('.copy-button');
+        
         closeButton.addEventListener('click', () => this.puzzleModal.close());
+        copyButton.addEventListener('click', () => {
+            const resultText = RESULT_CONTENT(this.rowNum, this.colNum, timeString);
+            navigator.clipboard.writeText(resultText);
+            copyButton.textContent = 'Copied!';
+            setTimeout(() => {
+                copyButton.textContent = 'Copy Result';
+            }, 2000);
+        });
     }
 }
 
