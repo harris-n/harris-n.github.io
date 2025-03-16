@@ -39,7 +39,7 @@
 
         <div class="button-container">
             <button id="settings-toggle">⚙️ Settings</button>
-            <button id="reset-button">Generate Puzzle</button>
+            <button id="reset-button">New Puzzle</button>
         </div>
 
         <div id="settings-div" class="collapsed">
@@ -47,7 +47,7 @@
             <div class="settings-group">
                 <label>Display Size</label>
                 <div class="input-group">
-                    <input type="range" min="10" max="90" value="60" id="size-input">
+                    <input type="range" min="40" max="90" value="60" id="size-input">
                 </div>
             </div>
             
@@ -57,26 +57,7 @@
                     <input type="checkbox" id="dark-mode-toggle">
                 </div>
             </div>
-
-            <div class="settings-group">
-                <label>Grid Size</label>
-                <div class="input-group">
-                    <input type="number" min="4" max="20" value="5" id="row-dim-input" aria-label="Rows">
-                    <span>×</span>
-                    <input type="number" min="4" max="20" value="5" id="col-dim-input" aria-label="Columns">
-                </div>
-            </div>
-
-            <div class="settings-group">
-                <label>Seed (optional)</label>
-                <input type="number" 
-                       id="seed-input" 
-                       placeholder="Numbers only" 
-                       min="0" 
-                       title="Enter a positive number to generate the same puzzle again">
-            </div>
         </div>
-
 
         <div id="timer-textbox">00:00</div>
 

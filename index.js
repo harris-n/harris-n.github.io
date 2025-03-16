@@ -40,13 +40,8 @@ const loadSavedPreferences = () => {
         sizeSlider.value = '60'; // Default to 60% if no saved preference
         localStorage.setItem('displaySize', '60');
     }
+    
     adjustDivSize(); // Apply the size immediately
-
-    // Load grid dimensions
-    const savedRows = localStorage.getItem('gridRows');
-    const savedCols = localStorage.getItem('gridCols');
-    if (savedRows) gridRowInput.value = savedRows;
-    if (savedCols) gridColInput.value = savedCols;
 };
 
 // Clear all saved preferences and reset to defaults
@@ -54,9 +49,7 @@ const clearPreferences = () => {
     // Default values
     const defaults = {
         displaySize: '60',
-        darkMode: false,
-        gridRows: '5',
-        gridCols: '5'
+        darkMode: false
     };
 
     // Clear all storage
@@ -65,8 +58,6 @@ const clearPreferences = () => {
     // Reset UI elements to defaults
     sizeSlider.value = defaults.displaySize;
     darkModeToggle.checked = defaults.darkMode;
-    gridRowInput.value = defaults.gridRows;
-    gridColInput.value = defaults.gridCols;
     document.documentElement.classList.remove('dark-mode');
 
     // Apply the default display size
@@ -89,9 +80,6 @@ const resetButton = document.getElementById('reset-button');
 const timerTextbox = document.getElementById("timer-textbox");
 const sizeSlider = document.getElementById('size-input');
 const sizeValue = document.getElementById('size-value');
-const gridRowInput = document.getElementById('row-dim-input');
-const gridColInput = document.getElementById('col-dim-input');
-const seedInput = document.getElementById('seed-input');
 const headerDiv = document.getElementById("header-div");
 const puzzleModal = document.getElementById('puzzle-dialog');
 const settingsDiv = document.getElementById('settings-div');
@@ -100,15 +88,6 @@ const darkModeToggle = document.getElementById('dark-mode-toggle');
 
 // Make clearPreferences available globally for console access
 window.clearPreferences = clearPreferences;
-
-// Create notification banner
-const notificationBanner = document.createElement('div');
-notificationBanner.id = 'notification-banner';
-notificationBanner.innerHTML = `
-    <div class="config-text"></div>
-    <button class="close-notification">&times;</button>
-`;
-document.body.insertBefore(notificationBanner, document.body.firstChild);
 
 // Game State
 let currentPuzzle = null;
@@ -133,22 +112,32 @@ const START_MODAL_CONTENT = (config = null) => {
     </div>`;
 };
 
-const END_MODAL_CONTENT = (rowNum, colNum, time, seed) => `
+const END_MODAL_CONTENT = (rowNum, colNum, time, seed, isRandomSeed) => `
     <div class="modal-content">
         Puzzle Complete!
         <div class="result-text">
-            Grid Size: ${rowNum} × ${colNum}<br>
-            Time: ${time}${seed ? `<br>Seed: ${seed}` : ''}
+            ${isRandomSeed ? 'Random' : 'Seeded'} ${rowNum} × ${colNum}<br>
+            ${seed ? `Seed: ${seed}<br>` : ''}
+            Time: ${time}
         </div>
         <div class="button-group">
             <button class="close-button">Close</button>
-            <button class="copy-button">Copy Result</button>
+            <div class="copy-dropdown">
+                <button class="copy-button">Copy Result</button>
+                <div class="copy-options">
+                    ${isRandomSeed ? '<button class="copy-option" data-include-seed="false">Without Seed</button>' : ''}
+                    <button class="copy-option" data-include-seed="true">With Seed</button>
+                </div>
+            </div>
         </div>
     </div>`;
 
-const RESULT_CONTENT = (rowNum, colNum, time, seed) => `Pipes Puzzle Result:
-Grid Size: ${rowNum} × ${colNum}
-Time: ${time}${seed ? `\nSeed: ${seed}` : ''}`;
+const RESULT_CONTENT = (rowNum, colNum, time, seed, isRandomSeed) => {
+    const url = `${window.location.origin}${window.location.pathname}?rows=${rowNum}&cols=${colNum}${seed ? `&seed=${seed}` : ''}`;
+    return `Pipes ${isRandomSeed ? 'Random' : 'Seeded'} ${rowNum} × ${colNum}
+${seed ? `Seed = ${seed}\n` : ''}Time: ${time}
+Play [here](${url})`;
+};
 
 // Tile Configuration
 const tileDictionary = {
@@ -187,112 +176,29 @@ window.addEventListener('load', () => {
     const rowParam = urlParams.get('rows');
     const colParam = urlParams.get('cols');
     
-    let config = null;
-    
     if (rowParam || colParam || seedParam) {
-        config = {
-            rows: parseInt(rowParam) || gridRowInput.value,
-            cols: parseInt(colParam) || gridColInput.value,
+        // If URL parameters exist, create puzzle with those parameters
+        const config = {
+            rows: parseInt(rowParam) || 5,
+            cols: parseInt(colParam) || 5,
             seed: parseInt(seedParam) || 0
         };
         
-        if (!isNaN(config.rows) && config.rows > 0) {
-            gridRowInput.value = config.rows;
-            localStorage.setItem('gridRows', config.rows);
-        }
-        if (!isNaN(config.cols) && config.cols > 0) {
-            gridColInput.value = config.cols;
-            localStorage.setItem('gridCols', config.cols);
-        }
-        if (!isNaN(config.seed)) {
-            seedInput.value = config.seed || '';
-        }
-
-        // Show notification
-        const configText = `Puzzle configuration loaded: ${config.rows} × ${config.cols}${config.seed ? ` with seed ${config.seed}` : ''}`;
-        notificationBanner.querySelector('.config-text').textContent = configText;
-        notificationBanner.classList.add('show');
-
-        // Auto-hide after 5 seconds
-        setTimeout(() => {
-            notificationBanner.classList.remove('show');
-        }, 2500);
+        // Initialize puzzle with URL parameters
+        startPuzzleWithConfig(config);
+    } else {
+        // Show mode selection interface
+        showModeSelection();
     }
 
     // Remove parameters from URL
-    urlParams.delete('rows');
-    urlParams.delete('cols');
-    urlParams.delete('seed');
-    const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
-    window.history.replaceState({}, '', newUrl);
-
-    // Initialize puzzle
-    resetButton.click();
-});
-
-// Add notification close button handler
-notificationBanner.querySelector('.close-notification').addEventListener('click', () => {
-    notificationBanner.classList.remove('show');
+    window.history.replaceState({}, '', window.location.pathname);
 });
 
 // User Input Events
 sizeSlider.addEventListener("input", () => {
     adjustDivSize();
     localStorage.setItem('displaySize', sizeSlider.value);
-});
-
-// Seed input handling
-seedInput.addEventListener("keydown", (e) => {
-    // Allow: backspace, delete, tab, escape, enter
-    if ([8, 46, 9, 27, 13].includes(e.keyCode) ||
-        // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
-        (e.ctrlKey === true && [65, 67, 86, 88].includes(e.keyCode)) ||
-        // Allow: home, end, left, right
-        (e.keyCode >= 35 && e.keyCode <= 39)) {
-        return;
-    }
-    // Block 'e', '-', '.'
-    if (['e', 'E', '-', '.'].includes(e.key)) {
-        e.preventDefault();
-        return;
-    }
-    // Block any non-number
-    if (!/[0-9]/.test(e.key)) {
-        e.preventDefault();
-    }
-});
-
-seedInput.addEventListener("input", () => {
-    const seedValue = seedInput.value;
-    if (seedValue === "") {
-        resetButton.disabled = false;
-    } else {
-        const numValue = parseInt(seedValue);
-        resetButton.disabled = isNaN(numValue);
-    }
-});
-
-resetButton.addEventListener("mouseup", () => {
-    if (resetButton.disabled) return;
-    
-    const rowDim = gridRowInput.value;
-    const colDim = gridColInput.value;
-    const seed = seedInput.value ? parseInt(seedInput.value) : 0;
-
-    while (gridDiv.firstChild) {
-        gridDiv.removeChild(gridDiv.firstChild);
-    }
-    
-    if (currentPuzzle !== null) {
-        currentPuzzle.stopTimer();
-        elapsedTime = 0;
-    }
-
-    currentPuzzle = new puzzle(rowDim, colDim, seed);
-    adjustDivSize();
-    timerTextbox.textContent = "00:00";
-    puzzleModal.innerHTML = START_MODAL_CONTENT();
-    puzzleModal.showModal();
 });
 
 // Settings toggle
@@ -306,13 +212,9 @@ darkModeToggle.addEventListener('change', () => {
     localStorage.setItem('darkMode', darkModeToggle.checked);
 });
 
-// Update grid dimension storage when changed
-gridRowInput.addEventListener('change', () => {
-    localStorage.setItem('gridRows', gridRowInput.value);
-});
-
-gridColInput.addEventListener('change', () => {
-    localStorage.setItem('gridCols', gridColInput.value);
+// Reset button
+resetButton.addEventListener("mouseup", () => {
+    showModeSelection();
 });
 
 /* ##########################################################################################
@@ -485,9 +387,10 @@ class tile {
 
 class puzzle {
     constructor(rowNum, colNum, seed = 0) {
-        this.rowNum = rowNum
-        this.colNum = colNum
-        this.seed = seed
+        this.rowNum = rowNum;
+        this.colNum = colNum;
+        this.seed = seed;
+        this.isRandomSeed = (seed === 0);  // Track if this is using a random seed
         this.gridTiles = this.generateGrid(rowNum, colNum);    
         this.rng = this.generateRNG(seed);
         this.minMoves = 0;
@@ -575,6 +478,7 @@ class puzzle {
     generateRNG(seed) {
         const finalSeed = seed === 0 ? Math.round(Math.random() * 10000000) : seed;
         console.log(`Using seed: ${finalSeed}`);
+        this.seed = finalSeed;  // Store the final seed back in the puzzle object
         return new MersenneTwister(finalSeed);
     }
 
@@ -611,20 +515,11 @@ class puzzle {
     }
 
     checkGrid() {
-        const totalTiles = this.rowNum * this.colNum;
         const incorrectTiles = this.gridTiles.flat().filter(tile => 
             tile.currentRotation !== tile.solRotation
-        ).map(tile => ({
-            position: `${tile.rowNum},${tile.colNum}`,
-            type: tile.type,
-            currentRotation: tile.currentRotation,
-            solRotation: tile.solRotation,
-            connections: tile.connections
-        }));
+        );
 
-        if (incorrectTiles.length > 0) {
-            console.log('Incorrect tiles:', incorrectTiles);
-        } else {
+        if (incorrectTiles.length === 0) {
             this.stopTimer();
             this.showResults();
         }
@@ -662,6 +557,9 @@ class puzzle {
     }
 
     showResults() {
+        // Remove the start puzzle handler to prevent accidental restarts
+        this.puzzleModal.removeEventListener("mousedown", this.startPuzzleHandler);
+        
         this.puzzleModal.showModal();
         this.finishTime = Date.now();
         this.timeTaken = this.finishTime - this.startTime;
@@ -674,19 +572,203 @@ class puzzle {
             ? `${minutes}:${String(seconds).padStart(2, "0")}.${String(milliseconds).padStart(3, "0")}`
             : `${seconds}.${String(milliseconds).padStart(3, "0")}`;
         
-        this.puzzleModal.innerHTML = END_MODAL_CONTENT(this.rowNum, this.colNum, timeString, this.seed);
+        // Pass seed and isRandomSeed to the modal content
+        this.puzzleModal.innerHTML = END_MODAL_CONTENT(this.rowNum, this.colNum, timeString, this.seed, this.isRandomSeed);
         
         const closeButton = this.puzzleModal.querySelector('.close-button');
         const copyButton = this.puzzleModal.querySelector('.copy-button');
+        const copyOptions = this.puzzleModal.querySelector('.copy-options');
+        const copyOptionButtons = this.puzzleModal.querySelectorAll('.copy-option');
         
-        closeButton.addEventListener('click', () => this.puzzleModal.close());
+        closeButton.addEventListener('click', () => {
+            this.puzzleModal.close();
+            // Re-add the start puzzle handler for the next puzzle
+            this.puzzleModal.addEventListener("mousedown", this.startPuzzleHandler);
+        });
+        
+        // Toggle dropdown
         copyButton.addEventListener('click', () => {
-            const resultText = RESULT_CONTENT(this.rowNum, this.colNum, timeString, this.seed);
-            navigator.clipboard.writeText(resultText);
-            copyButton.textContent = 'Copied!';
-            setTimeout(() => {
-                copyButton.textContent = 'Copy Result';
-            }, 2000);
+            copyOptions.classList.toggle('show');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.copy-dropdown')) {
+                copyOptions.classList.remove('show');
+            }
+        });
+
+        // Handle copy options
+        copyOptionButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const includeSeed = button.dataset.includeSeed === 'true';
+                const resultText = RESULT_CONTENT(
+                    this.rowNum, 
+                    this.colNum, 
+                    timeString, 
+                    includeSeed ? this.seed : null,
+                    this.isRandomSeed
+                );
+                
+                navigator.clipboard.writeText(resultText);
+                copyOptions.classList.remove('show');
+                copyButton.textContent = 'Copied!';
+                setTimeout(() => {
+                    copyButton.textContent = 'Copy Result';
+                }, 2000);
+            });
         });
     }
+}
+
+// Add these template functions near the other templates
+const MODE_SELECTION_CONTENT = () => `
+    <div class="mode-selection">
+        <div class="mode-content">
+            <h2>Choose Your Puzzle</h2>
+            <div class="mode-buttons">
+                <button id="daily-mode" class="mode-button" data-mode="daily">
+                    <span class="mode-title">Daily Puzzle</span>
+                    <span class="mode-description">Play today's puzzle that everyone else is playing</span>
+                </button>
+                <button id="custom-mode" class="mode-button" data-mode="custom">
+                    <span class="mode-title">Custom Puzzle</span>
+                    <span class="mode-description">Create a puzzle with your own settings</span>
+                </button>
+            </div>
+            <div id="custom-settings" class="custom-settings" style="display: none;">
+                <div class="settings-group">
+                    <label>Grid Size</label>
+                    <div class="grid-inputs">
+                        <input type="number" id="custom-rows" min="4" max="10" value="5" placeholder="Rows">
+                        <span>×</span>
+                        <input type="number" id="custom-cols" min="4" max="10" value="5" placeholder="Columns">
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label>Seed</label>
+                    <input type="number" id="custom-seed" placeholder="Leave empty for random">
+                </div>
+            </div>
+        </div>
+        <button id="start-puzzle" class="start-button" disabled>Start Puzzle</button>
+    </div>`;
+
+// Add this function to generate daily seed
+function getDailySeed() {
+    const today = new Date();
+    return (today.getFullYear() * 10000) + ((today.getMonth() + 1) * 100) + today.getDate();
+}
+
+// Add these new functions
+function showModeSelection() {
+    // Clear existing grid content
+    while (gridDiv.firstChild) {
+        gridDiv.removeChild(gridDiv.firstChild);
+    }
+    
+    // Add mode selection content
+    gridDiv.innerHTML = MODE_SELECTION_CONTENT();
+    
+    const modeButtons = document.querySelectorAll('.mode-button');
+    const startButton = document.getElementById('start-puzzle');
+    const customSettings = document.getElementById('custom-settings');
+    const customRows = document.getElementById('custom-rows');
+    const customCols = document.getElementById('custom-cols');
+    const customSeed = document.getElementById('custom-seed');
+    let selectedMode = null;
+    
+    // Add event listeners for mode buttons
+    modeButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            // Remove selected class from all buttons
+            modeButtons.forEach(btn => btn.classList.remove('selected'));
+            // Add selected class to clicked button
+            button.classList.add('selected');
+            // Store selected mode
+            selectedMode = button.dataset.mode;
+            
+            // Show/hide custom settings with animation
+            if (selectedMode === 'custom') {
+                // First set display to flex
+                customSettings.style.display = 'flex';
+                // Force a reflow
+                customSettings.offsetHeight;
+                // Reset the animation properties
+                customSettings.style.opacity = '1';
+                customSettings.style.transform = 'translateY(0)';
+            } else {
+                customSettings.style.opacity = '0';
+                customSettings.style.transform = 'translateY(-10px)';
+                customSettings.addEventListener('transitionend', function hidePanel() {
+                    if (selectedMode !== 'custom') {
+                        customSettings.style.display = 'none';
+                    }
+                    customSettings.removeEventListener('transitionend', hidePanel);
+                });
+            }
+            
+            // Enable start button
+            startButton.disabled = false;
+        });
+    });
+
+    // Add input validation for grid size
+    [customRows, customCols].forEach(input => {
+        input.addEventListener('input', () => {
+            let value = parseInt(input.value);
+            if (isNaN(value)) {
+                input.value = 5;
+            } else {
+                if (value < 4) input.value = 4;
+                if (value > 10) input.value = 10;
+            }
+        });
+
+        // Also validate on blur to catch any invalid values
+        input.addEventListener('blur', () => {
+            let value = parseInt(input.value);
+            if (isNaN(value) || value < 4 || value > 10) {
+                input.value = 5;
+            }
+        });
+    });
+
+    // Add event listener for start button
+    startButton.addEventListener('click', () => {
+        let config = {
+            rows: 5,
+            cols: 5,
+            seed: 0
+        };
+        
+        if (selectedMode === 'daily') {
+            config.seed = getDailySeed();
+        } else if (selectedMode === 'custom') {
+            // Ensure values are within valid range
+            config.rows = Math.min(Math.max(parseInt(customRows.value) || 5, 4), 10);
+            config.cols = Math.min(Math.max(parseInt(customCols.value) || 5, 4), 10);
+            config.seed = customSeed.value ? parseInt(customSeed.value) : 0;
+        }
+        
+        startPuzzleWithConfig(config);
+    });
+}
+
+function startPuzzleWithConfig(config) {
+    if (currentPuzzle !== null) {
+        currentPuzzle.stopTimer();
+        elapsedTime = 0;
+    }
+
+    // Clear existing grid content
+    while (gridDiv.firstChild) {
+        gridDiv.removeChild(gridDiv.firstChild);
+    }
+
+    currentPuzzle = new puzzle(config.rows, config.cols, config.seed);
+    adjustDivSize();
+    timerTextbox.textContent = "00:00";
+    puzzleModal.innerHTML = START_MODAL_CONTENT();
+    puzzleModal.showModal();
 }
