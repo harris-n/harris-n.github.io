@@ -4,16 +4,41 @@ UTILITY FUNCTIONS
 
 function adjustDivSize() {
     const scale = sizeSlider.value / 100;
+    const MIN_GRID_SIZE = 400;
+    const RESPONSIVE_BREAKPOINT = 600;
     
     // Calculate the maximum size that fits in the viewport
     const maxHeight = window.innerHeight * scale;
     const maxWidth = window.innerWidth * scale;
-    const size = Math.min(maxHeight, maxWidth);
     
-    // Account for the outer border in the total size
-    const totalSize = Math.floor(size);
-    gridDiv.style.width = `${totalSize}px`;
-    gridDiv.style.height = `${totalSize}px`;
+    // Get the grid's aspect ratio from the current puzzle
+    const aspectRatio = currentPuzzle ? currentPuzzle.colNum / currentPuzzle.rowNum : 1;
+    
+    // Calculate size based on aspect ratio
+    let width, height;
+    if (aspectRatio > 1) {
+        // Wider than tall
+        width = Math.min(maxWidth, maxHeight * aspectRatio);
+        height = width / aspectRatio;
+    } else {
+        // Taller than wide or square
+        height = Math.min(maxHeight, maxWidth / aspectRatio);
+        width = height * aspectRatio;
+    }
+
+    // Ensure minimum size
+    if (width < MIN_GRID_SIZE) {
+        width = MIN_GRID_SIZE;
+        height = width / aspectRatio;
+    }
+    if (height < MIN_GRID_SIZE) {
+        height = MIN_GRID_SIZE;
+        width = height * aspectRatio;
+    }
+
+    // Apply the calculated dimensions
+    gridDiv.style.width = `${Math.floor(width)}px`;
+    gridDiv.style.height = `${Math.floor(height)}px`;
 
     // Get the grid's position and update modal to match exactly
     const rect = gridDiv.getBoundingClientRect();
@@ -21,6 +46,53 @@ function adjustDivSize() {
     puzzleModal.style.height = `${rect.height}px`;
     puzzleModal.style.top = `${window.scrollY + rect.top}px`;
     puzzleModal.style.left = `${window.scrollX + rect.left}px`;
+
+    // Handle responsive mode selection
+    const modeSelection = document.querySelector('.mode-selection');
+    if (modeSelection) {
+        if (width < RESPONSIVE_BREAKPOINT) {
+            modeSelection.style.padding = '0.5rem';
+            modeSelection.style.gap = '0.5rem';
+            modeSelection.querySelector('h2').style.fontSize = '1.5rem';
+            modeSelection.querySelectorAll('.mode-button').forEach(button => {
+                button.style.padding = '0.75rem';
+                button.style.gap = '0.5rem';
+                button.querySelector('.mode-title').style.fontSize = '1rem';
+                button.querySelector('.mode-description').style.display = 'none';
+            });
+            modeSelection.querySelector('.start-button').style.padding = '0.5rem 1.5rem';
+            modeSelection.querySelector('.start-button').style.margin = '0.5rem';
+            modeSelection.querySelector('.start-button').style.fontSize = '1rem';
+            modeSelection.querySelectorAll('.custom-settings').forEach(element => {
+                element.style.padding = '0.75rem';
+                element.style.gap = '0.5rem';
+                element.querySelectorAll('span').forEach(span => {
+                    span.style.padding = '0.5rem';
+                    span.style.fontSize = '1rem';
+                });
+            });
+        } else {
+            modeSelection.style.padding = '2rem';
+            modeSelection.style.gap = '1.5rem';
+            modeSelection.querySelector('h2').style.fontSize = '1.75rem';
+            modeSelection.querySelectorAll('.mode-button').forEach(button => {
+                button.style.padding = '1rem';
+                button.style.gap = '1rem';
+                button.querySelector('.mode-title').style.fontSize = '1.2rem';
+                button.querySelector('.mode-description').style.display = 'block';
+            });
+            modeSelection.querySelector('.start-button').style.padding = '0.75rem 2rem';
+            modeSelection.querySelector('.start-button').style.fontSize = '1.1rem';
+            modeSelection.querySelectorAll('.custom-settings').forEach(element => {
+                element.style.padding = '1rem';
+                element.style.gap = '1rem';
+                element.querySelectorAll('span').forEach(span => {
+                    span.style.padding = '0.75rem';
+                    span.style.fontSize = '1.2rem';
+                });
+            });
+        }
+    }
 }
 
 // Load saved preferences
@@ -40,7 +112,6 @@ const loadSavedPreferences = () => {
         sizeSlider.value = '60'; // Default to 60% if no saved preference
         localStorage.setItem('displaySize', '60');
     }
-    
     adjustDivSize(); // Apply the size immediately
 };
 
@@ -135,7 +206,7 @@ const END_MODAL_CONTENT = (rowNum, colNum, time, seed, isRandomSeed) => `
 const RESULT_CONTENT = (rowNum, colNum, time, seed, isRandomSeed) => {
     const url = `${window.location.origin}${window.location.pathname}?rows=${rowNum}&cols=${colNum}${seed ? `&seed=${seed}` : ''}`;
     return `Pipes ${isRandomSeed ? 'Random' : 'Seeded'} ${rowNum} × ${colNum}
-${seed ? `Seed = ${seed}\n` : ''}Time: ${time}
+${seed ? `Seed = ${seed.toString().padStart(8, '0')}\n` : ''}Time: ${time}
 Play [here](${url})`;
 };
 
@@ -193,6 +264,7 @@ window.addEventListener('load', () => {
 
     // Remove parameters from URL
     window.history.replaceState({}, '', window.location.pathname);
+    adjustDivSize();
 });
 
 // User Input Events
@@ -214,7 +286,17 @@ darkModeToggle.addEventListener('change', () => {
 
 // Reset button
 resetButton.addEventListener("mouseup", () => {
+    // Clear all interval IDs
+    intervalIds.forEach(id => clearInterval(id));
+    intervalIds = [];
+    
+    // Reset timer display
+    elapsedTime = 0;
+    timerTextbox.textContent = "00:00";
+    
+    // Show mode selection
     showModeSelection();
+    adjustDivSize();
 });
 
 /* ##########################################################################################
@@ -621,34 +703,31 @@ class puzzle {
     }
 }
 
-// Add these template functions near the other templates
 const MODE_SELECTION_CONTENT = () => `
     <div class="mode-selection">
-        <div class="mode-content">
-            <h2>Choose Your Puzzle</h2>
-            <div class="mode-buttons">
-                <button id="daily-mode" class="mode-button" data-mode="daily">
-                    <span class="mode-title">Daily Puzzle</span>
-                    <span class="mode-description">Play today's puzzle that everyone else is playing</span>
-                </button>
-                <button id="custom-mode" class="mode-button" data-mode="custom">
-                    <span class="mode-title">Custom Puzzle</span>
-                    <span class="mode-description">Create a puzzle with your own settings</span>
-                </button>
+        <h2>Choose Your Puzzle</h2>
+        <div class="mode-buttons">
+            <button id="daily-mode" class="mode-button" data-mode="daily">
+                <span class="mode-title">Daily Puzzle</span>
+                <span class="mode-description">Play today's puzzle that everyone else is playing</span>
+            </button>
+            <button id="custom-mode" class="mode-button" data-mode="custom">
+                <span class="mode-title">Custom Puzzle</span>
+                <span class="mode-description">Create a puzzle with your own settings</span>
+            </button>
+        </div>
+        <div id="custom-settings" class="custom-settings" style="display: none;">
+            <div class="settings-group">
+                <span class="mode-title">Grid Size</span>
+                <div class="grid-inputs">
+                    <input type="number" id="custom-rows" min="4" max="10" value="5" placeholder="Rows">
+                    <span>×</span>
+                    <input type="number" id="custom-cols" min="4" max="10" value="5" placeholder="Columns">
+                </div>
             </div>
-            <div id="custom-settings" class="custom-settings" style="display: none;">
-                <div class="settings-group">
-                    <label>Grid Size</label>
-                    <div class="grid-inputs">
-                        <input type="number" id="custom-rows" min="4" max="10" value="5" placeholder="Rows">
-                        <span>×</span>
-                        <input type="number" id="custom-cols" min="4" max="10" value="5" placeholder="Columns">
-                    </div>
-                </div>
-                <div class="settings-group">
-                    <label>Seed</label>
-                    <input type="number" id="custom-seed" placeholder="Leave empty for random">
-                </div>
+            <div class="settings-group">
+                <span class="mode-title">Seed</span>
+                <input type="number" id="custom-seed" placeholder="Optional">
             </div>
         </div>
         <button id="start-puzzle" class="start-button" disabled>Start Puzzle</button>
@@ -688,25 +767,8 @@ function showModeSelection() {
             // Store selected mode
             selectedMode = button.dataset.mode;
             
-            // Show/hide custom settings with animation
-            if (selectedMode === 'custom') {
-                // First set display to flex
-                customSettings.style.display = 'flex';
-                // Force a reflow
-                customSettings.offsetHeight;
-                // Reset the animation properties
-                customSettings.style.opacity = '1';
-                customSettings.style.transform = 'translateY(0)';
-            } else {
-                customSettings.style.opacity = '0';
-                customSettings.style.transform = 'translateY(-10px)';
-                customSettings.addEventListener('transitionend', function hidePanel() {
-                    if (selectedMode !== 'custom') {
-                        customSettings.style.display = 'none';
-                    }
-                    customSettings.removeEventListener('transitionend', hidePanel);
-                });
-            }
+            // Show/hide custom settings
+            customSettings.style.display = selectedMode === 'custom' ? 'flex' : 'none';
             
             // Enable start button
             startButton.disabled = false;
@@ -768,7 +830,6 @@ function startPuzzleWithConfig(config) {
 
     currentPuzzle = new puzzle(config.rows, config.cols, config.seed);
     adjustDivSize();
-    timerTextbox.textContent = "00:00";
     puzzleModal.innerHTML = START_MODAL_CONTENT();
     puzzleModal.showModal();
 }
